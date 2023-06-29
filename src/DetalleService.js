@@ -17,6 +17,7 @@ import {
   TextArea,
   useToast,
 } from 'native-base';
+import {useFocusEffect} from '@react-navigation/native';
 import {NativeRouter, Route, Link, Redirect} from 'react-router-native';
 import {test} from './utilidades/DatosG';
 import {TabView, SceneMap} from 'react-native-tab-view';
@@ -26,24 +27,23 @@ import {
   ImageBackground,
   StyleSheet,
   Alert,
+  BackHandler,
+  ActivityIndicator,
 } from 'react-native';
 import {RUTA_API, GetFormattedDate, formatoBanco} from './utilidades/utiles';
 import {fontWeight} from 'styled-system';
 
 //detalle service de atencion telefonica>>>>>>>>>>>>
 const DetalleService = ({navigation, route}) => {
-  const [comentario, setComentario] = React.useState('');
-
   const [trabajoRealizado, setTrabajoRealizado] = React.useState('');
 
   const [id, setId] = React.useState();
   const [correo, setCorreo] = React.useState();
   const [contacto, setContacto] = React.useState();
-  const [tiempoTrabajado, setTiempoTrabajado] = React.useState('');
+  const [tiempoTrabajado, setTiempoTrabajado] = React.useState();
+  const [cargandoRetener, setCargandoRetener] = React.useState(false);
+  const [cargandoFinalizar, setCargandoFinalizar] = React.useState(false);
 
-  
-
-  
   React.useEffect(() => {
     //suma todos los tiempos de los services
     fetch(`${RUTA_API}/capturarTiemposPorProfesional`, {
@@ -60,29 +60,34 @@ const DetalleService = ({navigation, route}) => {
       .then(res => res.json())
       .then(data => {
         // console.log("<<<<<<<<<<<" + data);
-        setTiempoTrabajado(data.visitas);
-      console.log("TIEMPO:" +data.visitas);
+        setTiempoTrabajado(data.visitas[0].total);
+        console.log('TIEMPO:' + data.visitas);
         //   setTiempoTrabajado(res.capturarTiempos);
       });
   }, []);
-  
-  React.useEffect(() => {
-    // let terminaService = moment().format('YYYY-MM-DD hh:mm:ss');
-    fetch(`${RUTA_API}/actualizarFinAtencionTelefonica`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        id_caso_call_center: test.data.caso.ec_id,
-        // "fecha_fin_service": terminaService
-      }),
-    })
-      .then(res => res.json())
-      .then(result => {})
-      .catch(resp => {});
-  }, []);
+
+  //no permite ir hacia atras, pero si navegar. import BackHandler
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        Alert.alert(
+          'No puede abandonar esta pantalla, debe ingresar un detalle del trabajo realizado',
+        );
+
+        // Si estás en la pantalla en la que no quieres permitir el retroceso,
+        // puedes mostrar una alerta o realizar alguna otra acción aquí.
+        // Para este ejemplo, simplemente no hará nada cuando se presione el botón de retroceso.
+        return true; // Retornar true evita que se realice el retroceso
+      };
+
+      // Agregar el evento de retroceso al montar el componente
+      BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+      // Eliminar el evento de retroceso al desmontar el componente
+      return () =>
+        BackHandler.removeEventListener('hardwareBackPress', onBackPress);
+    }, []),
+  );
 
   React.useEffect(() => {
     try {
@@ -106,18 +111,58 @@ const DetalleService = ({navigation, route}) => {
     } catch (error) {}
   }, []);
 
-  function convertirTiempo(minutos) {
-    if (minutos < 0) {
-      return null;
-    }
-
-    let horas = Math.floor(minutos / 60);
-    minutos = minutos % 60;
-
-    minutos = minutos < 10 ? '0' + minutos : minutos;
-
-    return horas + ':' + minutos;
-  }
+  const minutosATiempo = minutos => {
+    const leyenda = (numero, palabra, plural) =>
+      numero === 0 || numero > 1
+        ? `${numero} ${palabra}${plural || 's'}`
+        : `${numero} ${palabra}`;
+    const MINUTOS_POR_HORA = 60,
+      HORAS_POR_DIA = 24,
+      DIAS_POR_SEMANA = 7,
+      DIAS_POR_MES = 30,
+      MESES_POR_ANIO = 12;
+    if (minutos < MINUTOS_POR_HORA) return leyenda(minutos, 'minuto');
+    let horas = Math.floor(minutos / MINUTOS_POR_HORA),
+      minutosSobrantes = minutos % MINUTOS_POR_HORA;
+    if (horas < HORAS_POR_DIA)
+      return (
+        leyenda(horas, 'hora') +
+        (minutosSobrantes > 0 ? ', ' + minutosATiempo(minutosSobrantes) : '')
+      );
+    let dias = Math.floor(horas / HORAS_POR_DIA);
+    minutosSobrantes = minutos % (MINUTOS_POR_HORA * HORAS_POR_DIA);
+    if (dias < DIAS_POR_SEMANA)
+      return (
+        leyenda(dias, 'día') +
+        (minutosSobrantes > 0 ? ', ' + minutosATiempo(minutosSobrantes) : '')
+      );
+    let semanas = Math.floor(horas / (HORAS_POR_DIA * DIAS_POR_SEMANA));
+    minutosSobrantes =
+      minutos % (MINUTOS_POR_HORA * HORAS_POR_DIA * DIAS_POR_SEMANA);
+    if (dias < DIAS_POR_MES)
+      return (
+        leyenda(semanas, 'semana') +
+        (minutosSobrantes > 0 ? ', ' + minutosATiempo(minutosSobrantes) : '')
+      );
+    let meses = Math.floor(horas / (HORAS_POR_DIA * DIAS_POR_MES));
+    minutosSobrantes =
+      minutos % (MINUTOS_POR_HORA * HORAS_POR_DIA * DIAS_POR_MES);
+    if (meses < MESES_POR_ANIO)
+      return (
+        leyenda(meses, 'mes', 'es') +
+        (minutosSobrantes > 0 ? ', ' + minutosATiempo(minutosSobrantes) : '')
+      );
+    let anios = Math.floor(
+      horas / (HORAS_POR_DIA * DIAS_POR_MES * MESES_POR_ANIO),
+    );
+    minutosSobrantes =
+      minutos %
+      (MINUTOS_POR_HORA * HORAS_POR_DIA * DIAS_POR_MES * MESES_POR_ANIO);
+    return (
+      leyenda(anios, 'año') +
+      (minutosSobrantes > 0 ? ', ' + minutosATiempo(minutosSobrantes) : '')
+    );
+  };
 
   const convertirFecha = (fecha, Año) => {
     var dd = String(fecha.getDate()).padStart(2, '0');
@@ -142,14 +187,21 @@ const DetalleService = ({navigation, route}) => {
   return (
     <NativeBaseProvider>
       <ImageBackground
-        source={require('./imagenes/fondoazul.jpg')}
+        source={require('./imagenes/Login2.jpg')}
         resizeMode="cover">
         <HStack bg={'#FFF'}>
-          <Text color={'#3498DB'} fontSize={25} p={4} pb={1} bold italic>
+          <Text color={'#070C6B'} fontSize={25} p={4} pb={1} bold italic>
             Caso: {test.data.caso.ec_id}
           </Text>
-          <Text color={'#3498DB'} fontSize={20} p={4} pb={1} marginLeft={20} bold italic>
-           {test.data.caso.modo_resolucion}
+          <Text
+            color={'#3498DB'}
+            fontSize={20}
+            p={4}
+            pb={1}
+            marginLeft={20}
+            bold
+            italic>
+            {test.data.caso.modo_resolucion}
           </Text>
         </HStack>
         <ScrollView
@@ -167,47 +219,52 @@ const DetalleService = ({navigation, route}) => {
             pb={'35%'}
             pt={6}
             borderRadius={30}>
-            <Text
-              marginTop={1}
-              textAlign={'left'}
-              fontSize={30}
-              color="#5DADE2"
-              italic
-              Bold>
-              {' '}
-              {test.data.caso.ec_cliente_razon_social}{' '}
-            </Text>
-            
-            <Text
-              rounded="lg"
-              color="#7F8C8D"
-              borderColor="coolGray.200"
-              fontSize={20}
-              textAlign="left">Motivo llamado: <Text
-              marginBottom={8}
-              rounded="lg"
-              color="#4074138"
-              borderColor="coolGray.200"
-              fontSize={18}
-              textAlign="left">
-              {test.data.caso.ec_objeto_de_llamado}
-            </Text>
-            </Text>
+            <Center>
+              <Text
+                marginTop={1}
+                textAlign={'left'}
+                fontSize={30}
+                color={'#070C6B'}
+                italic
+                Bold>
+                {' '}
+                {test.data.caso.ec_cliente_razon_social}{' '}
+              </Text>
+            </Center>
+
             <Text
               rounded="lg"
               color="#7F8C8D"
               borderColor="coolGray.200"
               fontSize={20}
               textAlign="left">
-              Equipo: <Text
-              marginBottom={8}
-              rounded="lg"
-              color="#4074138"
-              borderColor="coolGray.200"
-              fontSize={18}
-              textAlign="left">
-              {test.data.caso.ec_equipo_nombre}
+              Motivo llamado:{' '}
+              <Text
+                marginBottom={8}
+                rounded="lg"
+                color="#4074138"
+                borderColor="coolGray.200"
+                fontSize={18}
+                textAlign="left">
+                {test.data.caso.ec_objeto_de_llamado}
+              </Text>
             </Text>
+            <Text
+              rounded="lg"
+              color="#7F8C8D"
+              borderColor="coolGray.200"
+              fontSize={20}
+              textAlign="left">
+              Equipo:{' '}
+              <Text
+                marginBottom={8}
+                rounded="lg"
+                color="#4074138"
+                borderColor="coolGray.200"
+                fontSize={18}
+                textAlign="left">
+                {test.data.caso.ec_equipo_nombre}
+              </Text>
             </Text>
 
             <Text
@@ -216,17 +273,18 @@ const DetalleService = ({navigation, route}) => {
               borderColor="coolGray.200"
               fontSize={20}
               textAlign="left">
-              Numero de serie: <Text
-              marginBottom={8}
-              rounded="lg"
-              color="#4074138"
-              borderColor="coolGray.200"
-              fontSize={18}
-              textAlign="left">
-              {test.data.caso.ec_equipo_cliente_nro_serie}
+              Numero de serie:{' '}
+              <Text
+                marginBottom={8}
+                rounded="lg"
+                color="#4074138"
+                borderColor="coolGray.200"
+                fontSize={18}
+                textAlign="left">
+                {test.data.caso.ec_equipo_cliente_nro_serie}
+              </Text>
             </Text>
-            </Text>  
-            {tiempoTrabajado && (
+            {tiempoTrabajado ? (
               <Box
                 border={1}
                 borderColor="#0076D1"
@@ -241,10 +299,14 @@ const DetalleService = ({navigation, route}) => {
                   color="#fff"
                   italic
                   Bold>
-                  Tiempo trabajado {convertirTiempo(tiempoTrabajado[0].total)}{' '}
+                  Tiempo total trabajado: {minutosATiempo(tiempoTrabajado)}
                 </Text>
               </Box>
-            )}          
+            ) : (
+              <Box>
+                <ActivityIndicator size={50} color="#00ff00" />
+              </Box>
+            )}
             <Text
               marginTop={1}
               textAlign={'left'}
@@ -255,7 +317,6 @@ const DetalleService = ({navigation, route}) => {
               {' '}
               Detalle trabajo realizado:{' '}
             </Text>
-            
 
             <VStack justifyContent="center">
               <TextArea
@@ -276,8 +337,16 @@ const DetalleService = ({navigation, route}) => {
                   setTrabajoRealizado(element);
                 }}
               />
-               <Text
+              <Text
                 mt={1}
+                mb={0}
+                bold
+                color="#BDBFC1"
+                fontSize={10}
+                textAlign={'left'}>Opcional:
+              </Text>
+              <Text
+                mt={0}
                 mb={1}
                 bold
                 color="#BDBFC1"
@@ -318,12 +387,12 @@ const DetalleService = ({navigation, route}) => {
                   setCorreo(element);
                 }}
               />
-
             </VStack>
 
             <HStack space={5} justifyContent="center">
               <Button
-                isDisabled={!trabajoRealizado}
+                bg={!trabajoRealizado ? '#121212' : '#239B56'}
+                _pressed={{bg: '#121212'}}
                 _text={{
                   color: '#FFF',
                   fontSize: 'xl',
@@ -332,13 +401,14 @@ const DetalleService = ({navigation, route}) => {
                 marginLeft={3}
                 marginBottom={20}
                 width="40%"
-                bg="#0098da"
+                bg="#070FAD"
                 bold
                 mt={5}
                 onPress={() => {
-                  console.log('-----------' + id);
+                  setCargandoRetener(true);
+                  //console.log('-----------' + id);
                   let terminaService = '00:00';
-                  //     let terminaService = moment().format('YYYY-MM-DD hh:mm:ss');
+
                   fetch(`${RUTA_API}/actualizarComentarioFin`, {
                     method: 'POST',
                     headers: {
@@ -365,11 +435,17 @@ const DetalleService = ({navigation, route}) => {
                       );
                     });
                 }}>
-                Retener atención
+                {cargandoRetener ? (
+                  <ActivityIndicator size="large" color="#FFF" />
+                ) : (
+                  <Text color="#FFF" fontSize="xl" fontWeight="bold">
+                    Retener Atención
+                  </Text>
+                )}
               </Button>
 
               <Button
-                isDisabled={!trabajoRealizado || !correo || !contacto}
+                isDisabled={!trabajoRealizado}
                 _text={{
                   color: '#FFF',
                   fontSize: 'xl',
@@ -378,12 +454,14 @@ const DetalleService = ({navigation, route}) => {
                 marginLeft={3}
                 marginBottom={20}
                 width="40%"
-                bg="#0098da"
+                bg="#070FAD"
                 bold
                 mt={5}
                 onPress={() => {
-                  //let terminaService = "00:00"
-                  //     let terminaService = moment().format('YYYY-MM-DD hh:mm:ss');
+                  setCargandoFinalizar(true);
+                 
+                  let fechaHora = new Date();
+                  let fechaHoraCierra = convertirFecha(fechaHora, true);
                   fetch(`${RUTA_API}/actualizarComentarioFin`, {
                     method: 'POST',
                     headers: {
@@ -398,14 +476,14 @@ const DetalleService = ({navigation, route}) => {
                   })
                     .then(res => res.json())
                     .then(result => {
-                      fetch(`${RUTA_API}/cerrarCasoAtiende`, {
+                      fetch(`${RUTA_API}/ActualizarTrabajoDelCaso`, {
                         method: 'POST',
                         headers: {
                           Accept: 'application/json',
                           'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                          caso_call_center_id: test.data.caso.ec_id,
+                          ec_id: test.data.caso.ec_id,
                           ec_caso_solucion: trabajoRealizado,
                           ec_informe_trabajo: '',
                           ec_fecha_hora_cerrado: fechaHoraCierra,
@@ -447,10 +525,14 @@ const DetalleService = ({navigation, route}) => {
                         'No se pudo guardar el informe del trabajo realizado',
                       );
                     });
-                  let fechaHora = new Date();
-                  let fechaHoraCierra = convertirFecha(fechaHora, true);
                 }}>
-                Finalizar caso telefónico
+                {cargandoFinalizar ? (
+                  <ActivityIndicator size="large" color="#FFF" />
+                ) : (
+                  <Text color="#FFF" fontSize="xl" fontWeight="bold">
+                    Finalizar caso
+                  </Text>
+                )}
               </Button>
             </HStack>
           </Box>

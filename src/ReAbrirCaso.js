@@ -32,7 +32,6 @@ import {createNativeStackNavigator} from '@react-navigation/native-stack';
 
 const Stack = createNativeStackNavigator();
 
-
 const convertirFecha = (fecha, Año) => {
   var dd = String(fecha.getDate()).padStart(2, '0');
 
@@ -40,9 +39,7 @@ const convertirFecha = (fecha, Año) => {
 
   var yyyy = fecha.getFullYear();
 
-  //var hour = String(fecha.getHours() - 3);
-
-  var hour = String(fecha.getHours());
+  var hour = String(fecha.getHours() - 3);
 
   var min = String(fecha.getMinutes());
 
@@ -53,11 +50,10 @@ const convertirFecha = (fecha, Año) => {
     : dd + '-' + mm;
 };
 
-const DerivarCaso = ({navigation, route}) => {
+const ReAbrirCaso = ({navigation, route}) => {
   const [comentario, setComentario] = React.useState('');
-  const [profesional, setProfesional] = React.useState('');
+  const [solucionDada, setSolucionDada] = React.useState();
 
-  //{test.data.caso.ec_caso_fecha_creado}
   return (
     <NativeBaseProvider>
       <ImageBackground
@@ -91,21 +87,21 @@ const DerivarCaso = ({navigation, route}) => {
               italic
               Bold>
               {' '}
-              Derivar Caso:{' '}
+              Reabrir caso:{' '}
             </Text>
             <Text
               rounded="lg"
-              color='#070C6B'
+              color="#070C6B"
               borderColor="coolGray.200"
               fontSize={25}
               textAlign="center">
-              Cliente:  {test.data.caso.ec_cliente_razon_social}
+              Cliente: {test.data.caso.ec_cliente_razon_social}
             </Text>
-           
+
             <Text
               rounded="lg"
-              color='#070C6B'
-             bold
+              color="#070C6B"
+              bold
               fontSize={19}
               textAlign="left">
               Motivo del caso:
@@ -113,11 +109,26 @@ const DerivarCaso = ({navigation, route}) => {
             <Text
               marginBottom={8}
               rounded="lg"
-              color='#070C6B'
-             
+              color="#070C6B"
               fontSize={18}
               textAlign="left">
               {test.data.caso.ec_objeto_de_llamado}
+            </Text>
+            <Text
+              rounded="lg"
+              color="#070C6B"
+              bold
+              fontSize={19}
+              textAlign="left">
+              Solucion dado al caso:
+            </Text>
+            <Text
+              marginBottom={8}
+              rounded="lg"
+              color="#070C6B"
+              fontSize={18}
+              textAlign="left">
+              {test.data.caso.ec_caso_solucion}
             </Text>
 
             <HStack justifyContent="center">
@@ -130,14 +141,13 @@ const DerivarCaso = ({navigation, route}) => {
                 containerStyle={styles.textareaContainer}
                 style={styles.textarea}
                 // textAlign={"center"}
-                placeholder={'Motivo de la derivación'}
+                placeholder={'Motivo de la re apertura del caso'}
                 placeholderTextColor={'#CACFD2'}
                 borderColor={'#B2BABB'}
                 maxLength={5000}
                 value={comentario}
                 onChangeText={element => {
                   setComentario(element);
-                  setProfesional(test.data.caso.ec_profesional_id);
                 }}
               />
             </HStack>
@@ -157,53 +167,73 @@ const DerivarCaso = ({navigation, route}) => {
                 bold
                 mt={5}
                 onPress={() => {
-                  let fechaHora = new Date();
-                  let fechaHoraDeriva = convertirFecha(fechaHora, true);
-
-                  
-                  fetch(`${RUTA_API}/insertarCasoDerivado`, {
+                  let solucionDada;
+                  fetch(`${RUTA_API}/capturarSolucionDada`, {
                     method: 'POST',
                     headers: {
                       Accept: 'application/json',
                       'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                      id_caso_call_center: test.data.caso.ec_id,
-                      motivo_derivacion: comentario,
-                      fecha_hora_derivado: fechaHoraDeriva,
-                      empleado_id: profesional,
+                      ec_id: test.data.caso.ec_id,
                     }),
                   })
                     .then(res => res.json())
                     .then(result => {
-                      console.log('clic derivado');
-                    })
-                    .catch(resp => {
-                      console.log('ERROR');
-                    });
+                      solucionDada = result.solucionDada[0].ec_caso_solucion;
 
-                  fetch(`${RUTA_API}/derivarCaso`, {
-                    method: 'POST',
-                    headers: {
-                      Accept: 'application/json',
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      caso_call_center_id: test.data.caso.ec_id,
-                      ec_informe_trabajo: comentario,
-                      fecha: fechaHoraDeriva
-                    }),
-                  })
-                    .then(res => res.json())
-                    .then(result => {
-                      console.log('clic derivado');
-                      navigation.navigate({name: 'Casos'});
+                      let fechaHora = new Date();
+
+                      let fechaReAbre = convertirFecha(fechaHora, true);
+                      fetch(`${RUTA_API}/reAbrirCaso`, {
+                        method: 'POST',
+                        headers: {
+                          Accept: 'application/json',
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          ec_id: test.data.caso.ec_id,
+                          ec_modifica_fecha: fechaReAbre,
+                        }),
+                      })
+                        .then(res => res.json())
+                        .then(result => {
+                          fetch(`${RUTA_API}/insertarCasoReAbierto`, {
+                            method: 'POST',
+                            headers: {
+                              Accept: 'application/json',
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              id_caso_call_center: test.data.caso.ec_id,
+                              fecha_reabierto: fechaReAbre,
+                              motivo: comentario,
+                              solucionAnterior: solucionDada,
+                            }),
+                          })
+                            .then(res => res.json())
+                            .then(result => {
+                              navigation.navigate({name: 'Casos'});
+                            })
+                            .catch(resp => {
+                              Alert.alert(
+                                'CASO NO REABIERTO - INTENTE NUEVAMENTE',
+                              );
+                            });
+
+                          navigation.navigate({name: 'Casos'});
+                        })
+                        .catch(resp => {
+                          Alert.alert('CASO NO REABIERTO - INTENTE NUEVAMENTE');
+                        });
                     })
                     .catch(resp => {
-                      console.log('ERROR');
+                      Alert.alert(
+                        'No se pudo capturar la solucion anterior - comuniquese con sistemas internos',
+                      );
                     });
                 }}>
-                Derivar call center
+                Reabrir caso
               </Button>
             </HStack>
           </Box>
@@ -243,4 +273,4 @@ const styles = StyleSheet.create({
     color: '#333',
   },
 });
-export default DerivarCaso;
+export default ReAbrirCaso;

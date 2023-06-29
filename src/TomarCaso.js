@@ -27,7 +27,10 @@ import {
   ActivityIndicator,
   Linking,
   Alert,
+  PermissionsAndroid,
 } from 'react-native';
+import Geolocation from 'react-native-geolocation-service';
+
 import {RUTA_API, GetFormattedDate, formatoBanco} from './utilidades/utiles';
 import {fontWeight, justifyContent} from 'styled-system';
 import Icon from 'react-native-vector-icons/FontAwesome';
@@ -58,15 +61,66 @@ const convertirFecha = (fecha, Año) => {
 //cerrarCaso
 const TomarCaso = ({navigation, route}) => {
   //console.log(test.data.caso)
+  const [permissionStatus, setPermissionStatus] = useState(null);
 
-  const [casosCerrados, setCasosCerrados] = useState([]);
-  const [Cerrar, setCerrarCaso] = React.useState('');
-  const [Interna, setInterna] = React.useState('');
-  //const [horaCerrado, setHoraCerrado] = React.useState()
-  let diferenciaHora;
-  let segundos;
+  let latitud;
+  let longitud;
 
-  const [tiempoTrabajado, setTiempoTrabajado] = React.useState('');
+  const [tiempoTrabajado, setTiempoTrabajado] = React.useState();
+
+  const minutosATiempo = minutos => {
+    const leyenda = (numero, palabra, plural) =>
+      numero === 0 || numero > 1
+        ? `${numero} ${palabra}${plural || 's'}`
+        : `${numero} ${palabra}`;
+    const MINUTOS_POR_HORA = 60,
+      HORAS_POR_DIA = 24,
+      DIAS_POR_SEMANA = 7,
+      DIAS_POR_MES = 30,
+      MESES_POR_ANIO = 12;
+    if (minutos < MINUTOS_POR_HORA) return leyenda(minutos, 'minuto');
+    let horas = Math.floor(minutos / MINUTOS_POR_HORA),
+      minutosSobrantes = minutos % MINUTOS_POR_HORA;
+    if (horas < HORAS_POR_DIA)
+      return (
+        leyenda(horas, 'hora') +
+        (minutosSobrantes > 0 ? ', ' + minutosATiempo(minutosSobrantes) : '')
+      );
+    let dias = Math.floor(horas / HORAS_POR_DIA);
+    minutosSobrantes = minutos % (MINUTOS_POR_HORA * HORAS_POR_DIA);
+    if (dias < DIAS_POR_SEMANA)
+      return (
+        leyenda(dias, 'día') +
+        (minutosSobrantes > 0 ? ', ' + minutosATiempo(minutosSobrantes) : '')
+      );
+    let semanas = Math.floor(horas / (HORAS_POR_DIA * DIAS_POR_SEMANA));
+    minutosSobrantes =
+      minutos % (MINUTOS_POR_HORA * HORAS_POR_DIA * DIAS_POR_SEMANA);
+    if (dias < DIAS_POR_MES)
+      return (
+        leyenda(semanas, 'semana') +
+        (minutosSobrantes > 0 ? ', ' + minutosATiempo(minutosSobrantes) : '')
+      );
+    let meses = Math.floor(horas / (HORAS_POR_DIA * DIAS_POR_MES));
+    minutosSobrantes =
+      minutos % (MINUTOS_POR_HORA * HORAS_POR_DIA * DIAS_POR_MES);
+    if (meses < MESES_POR_ANIO)
+      return (
+        leyenda(meses, 'mes', 'es') +
+        (minutosSobrantes > 0 ? ', ' + minutosATiempo(minutosSobrantes) : '')
+      );
+    let anios = Math.floor(
+      horas / (HORAS_POR_DIA * DIAS_POR_MES * MESES_POR_ANIO),
+    );
+    minutosSobrantes =
+      minutos %
+      (MINUTOS_POR_HORA * HORAS_POR_DIA * DIAS_POR_MES * MESES_POR_ANIO);
+    return (
+      leyenda(anios, 'año') +
+      (minutosSobrantes > 0 ? ', ' + minutosATiempo(minutosSobrantes) : '')
+    );
+  };
+
   const opcionesFecha = {
     weekday: 'long',
     year: 'numeric',
@@ -77,12 +131,43 @@ const TomarCaso = ({navigation, route}) => {
   const [DeshabilitarTomarCaso, setDeshabilitarTomarCaso] =
     React.useState(false);
 
-  const [habilitarIniciarService, setHabilitarIniciarService] =
-    React.useState(false);
-  const [habilitarDetenerService, setHabilitarDetenerService] =
-    React.useState(false);
-
   const [estadoService, setestadoService] = React.useState('');
+
+  const [contadorIniciado, setContadorIniciado] = React.useState(false);
+  const [iniciarActivado, setIniciarActivado] = React.useState(false);
+  const [finalizarDeshabilitado, setFinalizarDeshabilitado] =
+    React.useState(false);
+  const [cargando, setCargando] = React.useState(false);
+  const [navegacion, setNavegacion] = React.useState(false);
+
+  const [tiempo, setTiempo] = React.useState({
+    horas: 0,
+    minutos: 0,
+    segundos: 0,
+  });
+
+  const traerHora = hora => {
+    if (hora) {
+      const fechaInicio = new Date(hora);
+
+      console.log(fechaInicio);
+      const intervalo = setInterval(() => {
+        const ahora = new Date();
+        const diferencia = ahora.getTime() - fechaInicio.getTime();
+
+        // Cálculo de horas, minutos y segundos
+        const horas = Math.floor(diferencia / (1000 * 60 * 60));
+        const minutos = Math.floor((diferencia / (1000 * 60)) % 60);
+        const segundos = Math.floor((diferencia / 1000) % 60);
+
+        // Actualizar el tiempo en el estado
+        setTiempo({horas, minutos, segundos});
+      }, 1000);
+
+      // Limpieza del intervalo cuando el componente se desmonta
+      return () => clearInterval(intervalo);
+    }
+  };
 
   React.useEffect(() => {
     try {
@@ -99,20 +184,22 @@ const TomarCaso = ({navigation, route}) => {
         .then(res => res.json())
         .then(data => {
           setestadoService(data.visitas);
-          //    console.log(data.visitas);
 
           //  console.log(data.visitas.length > 0);
-
+          console.log('se lanza use effect de capturarserviceiniciado');
           data.visitas.length > 0
             ? data.visitas[0].estado == 0
-              ? setHabilitarIniciarService(true)
-              : setHabilitarIniciarService(false)
-            : setHabilitarIniciarService(false);
+              ? (setContadorIniciado(true),
+                traerHora(data.visitas[0].fecha_inicio_service))
+              : setContadorIniciado(false)
+            : setContadorIniciado(false);
+
+          data.visitas.length === 0 ? setIniciarActivado(true) : '';
         });
     } catch (error) {
       console.log('era este error');
     }
-  }, []);
+  }, [contadorIniciado]);
 
   React.useEffect(() => {
     //suma todos los tiempos de los services
@@ -130,11 +217,20 @@ const TomarCaso = ({navigation, route}) => {
       .then(res => res.json())
       .then(data => {
         // console.log("<<<<<<<<<<<" + data);
-        setTiempoTrabajado(data.visitas);
-        //  console.log(data.visitas);
-        //   setTiempoTrabajado(res.capturarTiempos);
+        data.visitas.length != null
+          ? data.visitas[0].total > 0
+            ? setTiempoTrabajado(data.visitas[0].total)
+            : ''
+          : '';
       });
-  }, []);
+  },[]);
+
+  const iniciarContador = () => {
+    let FechaActual = new Date();
+    let hora = convertirFecha(FechaActual, true);
+
+    traerHora(hora);
+  };
 
   const handeLlamadaPress = async () => {
     await Linking.openURL(
@@ -189,13 +285,255 @@ const TomarCaso = ({navigation, route}) => {
     return horas + ':' + minutos;
   }
 
+  const solicitarPermisosUbicacion = async () => {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Permiso de ubicación',
+          message:
+            'Se requiere permiso de ubicación para acceder a la ubicación del dispositivo',
+          buttonNeutral: 'Preguntar más tarde',
+          buttonNegative: 'Cancelar',
+          buttonPositive: 'OK',
+        },
+      );
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        obtenerUbicacion();
+      } else {
+        console.log('Permiso de ubicación denegado');
+      }
+    } catch (err) {
+      console.warn(err);
+    }
+  };
+
+  const obtenerUbicacion = async () => {
+    Geolocation.getCurrentPosition(
+      position => {
+        console.log(position.coords.latitude);
+        console.log(position.coords.longitude);
+        latitud = position.coords.latitude;
+        longitud = position.coords.longitude;
+      },
+      error => {
+        console.log(error.code, error.message);
+      },
+      {enableHighAccuracy: true, timeout: 15000, maximumAge: 0},
+    );
+  };
+
+  const tomarcaso = () => {
+    let fechaHora = new Date();
+    let TomaCaso = convertirFecha(fechaHora, true);
+
+    fetch(`${RUTA_API}/tomarCaso`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        caso_call_center_id: test.data.caso.ec_id,
+        ec_fecha_hora_tomado: TomaCaso,
+      }),
+    })
+      .then(res => res.json())
+      .then(result => {
+        Alert.alert('CASO TOMADO - DEBE INICIAR EL CRONOMETRO');
+        navigation.navigate({name: 'Casos'});
+      })
+      .catch(resp => {
+        Alert.alert('CASO NO TOMADO - INTENTE NUEVAMENTE');
+      });
+  };
+
+  const Retomarcaso = () => {
+    let fechaHora = new Date();
+    let TomaCaso = convertirFecha(fechaHora, true);
+
+    fetch(`${RUTA_API}/RetomarCaso`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ec_id: test.data.caso.ec_id,
+      }),
+    })
+      .then(res => res.json())
+      .then(result => {
+        //Alert.alert('CASO RETOMADO - DEBE INICIAR EL CRONOMETRO');
+        // navigation.navigate({name: 'Casos'});
+        fetch(`${RUTA_API}/tomarCasoHistorico`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id_caso_call_center: test.data.caso.ec_id,
+            fecha_tomado: TomaCaso,
+            empleado_id: test.data.caso.ec_profesional_id,
+          }),
+        })
+          .then(res => res.json())
+          .then(result => {
+            Alert.alert('CASO RETOMADO - DEBE INICIAR EL CRONOMETRO');
+            navigation.navigate({name: 'Casos'});
+          })
+          .catch(resp => {
+            Alert.alert('CASO NO TOMADO - INTENTE NUEVAMENTE');
+          });
+      })
+      .catch(resp => {
+        Alert.alert('CASO NO TOMADO - INTENTE NUEVAMENTE');
+      });
+  };
+
+  const guardarGeo = () => {
+    Geolocation.getCurrentPosition(
+      position => {
+        latitud = position.coords.latitude;
+        longitud = position.coords.longitude;
+        fetch(`${RUTA_API}/insertarPosicion`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            idCliente: test.data.caso.ec_cliente_codigo_lew,
+            idEmpleado: test.data.caso.ec_profesional_id,
+            idSistema: '43',
+            longitudInicial: longitud,
+            latitudInicial: latitud,
+          }),
+        })
+          .then(res => res.json())
+          .then(result => {
+            console.log(result);
+          })
+          .catch(resp => {
+            console.log('Error de fetch: ' + resp);
+          });
+      },
+      error => {
+        console.log(error.code, error.message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      },
+    );
+  };
+
+  const insertarNuevaAtencion = () => {
+    let fechaHora = new Date();
+    let iniciaService = convertirFecha(fechaHora, true);
+
+    fetch(`${RUTA_API}/insertarNuevaAtencion`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id_caso_call_center: test.data.caso.ec_id,
+        fecha_inicio_service: iniciaService,
+        totalHoras: '0',
+        profesional_id: test.data.caso.ec_profesional_id,
+        finalizado: '0',
+      }),
+    })
+      .then(res => res.json())
+      .then(
+        fetch(`${RUTA_API}/cambiarEstadoContadorIniciado`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            caso_call_center_id: test.data.caso.ec_id,
+          }),
+        })
+          .then(res => res.json())
+          .then(result => {})
+          .catch(resp => {
+            Alert.alert(
+              'No se pudo cambiar el estado del contador - Intente nuevamente',
+            );
+          }),
+      )
+      .then(result => {
+        //console.log(test.data.caso.ec_id)
+        // Alert.alert('CONTADOR INICIADO');
+        //  navigation.navigate({name: 'Casos'});
+      })
+      .catch(resp => {
+        Alert.alert('Contador no iniciado - Intente nuevamente');
+      });
+  };
+  const actualizarFinAtencion = () => {
+    setCargando(true);
+    let fechaHora = new Date();
+    let terminaService = convertirFecha(fechaHora, true);
+    fetch(`${RUTA_API}/actualizarFinAtencion`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id: estadoService[0].id,
+        fecha_fin_service: terminaService,
+      }),
+    })
+      .then(res => res.json())
+      .then(result => {
+        fetch(`${RUTA_API}/cambiarEstadoContadorDetenido`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            caso_call_center_id: test.data.caso.ec_id,
+          }),
+        })
+          .then(res => res.json())
+          .then(result => {
+            console.log('contador detenido');
+          })
+          .catch(resp => {
+            Alert.alert(
+              'No se pudo cambiar el estado del contador - Intente nuevamente',
+            );
+          }),
+          navigation.navigate({name: 'DetalleService'});
+      })
+      .catch(resp => {
+        Alert.alert('Contador no detenido - Intente nuevamente');
+        setCargando(false);
+      });
+  };
+
+  useEffect(() => {
+    if (navegacion) {
+      navigation.navigate('DetalleService');
+    }
+  }, [navegacion]);
+
   return (
     <NativeBaseProvider>
       <ImageBackground
-        source={require('./imagenes/fondoazul.jpg')}
+        source={require('./imagenes/Login2.jpg')}
         resizeMode="cover">
         <HStack bg={'#FFF'}>
-          <Text color={'#3498DB'} fontSize={25} p={4} pb={1} bold italic>
+          <Text color={'#070C6B'} fontSize={25} p={4} pb={1} bold italic>
             Caso: {test.data.caso.ec_id}
           </Text>
           <Text
@@ -228,7 +566,7 @@ const TomarCaso = ({navigation, route}) => {
               marginTop={1}
               textAlign={'left'}
               fontSize={30}
-              color="#5DADE2"
+              color={'#070C6B'}
               italic
               Bold>
               {' '}
@@ -238,7 +576,7 @@ const TomarCaso = ({navigation, route}) => {
               marginTop={1}
               textAlign={'left'}
               fontSize={25}
-              color="#5DADE2"
+              color={'#070C6B'}
               italic
               Bold>
               {' '}
@@ -252,7 +590,11 @@ const TomarCaso = ({navigation, route}) => {
               borderRadius={10}
               border={2}
               borderColor="#154360">
-              <Text rounded="lg" fontSize={20} color="#000" textAlign="center">
+              <Text
+                rounded="lg"
+                fontSize={20}
+                color={'#070C6B'}
+                textAlign="center">
                 {test.data.caso.ec_objeto_de_llamado}
               </Text>
             </Box>
@@ -327,6 +669,7 @@ const TomarCaso = ({navigation, route}) => {
             <HStack style={styles.iconContainer}>
               {test.data.caso.ec_caso_estado != 1 &&
               test.data.caso.ec_caso_estado != 7 ? (
+                
                 <Button
                   bg="#2874A6"
                   width="80%"
@@ -338,28 +681,14 @@ const TomarCaso = ({navigation, route}) => {
                     // setDeshabilitarIniciarService(false)
                     // let iniciaService = "00:00:00"
                     let fechaHora = new Date();
-                    setHabilitarIniciarService(true);
+                   // setHabilitarIniciarService(true);
                     // console.log(convertirFecha(fechaHora,true))
-                    let TomaCaso = convertirFecha(fechaHora, true);
-                    fetch(`${RUTA_API}/tomarCaso`, {
-                      method: 'POST',
-                      headers: {
-                        Accept: 'application/json',
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        caso_call_center_id: test.data.caso.ec_id,
-                        ec_fecha_hora_tomado: TomaCaso,
-                      }),
-                    })
-                      .then(res => res.json())
-                      .then(result => {
-                        Alert.alert('CASO TOMADO - DEBE INICIAR EL CRONOMETRO');
-                        navigation.navigate({name: 'Casos'});
-                      })
-                      .catch(resp => {
-                        Alert.alert('CASO NO TOMADO - INTENTE NUEVAMENTE');
-                      });
+
+                    {
+                      test.data.caso.ec_derivado == 0
+                        ? tomarcaso()
+                        : Retomarcaso();
+                    }
                   }}>
                   {DeshabilitarTomarCaso
                     ? 'Caso tomado'
@@ -367,160 +696,103 @@ const TomarCaso = ({navigation, route}) => {
                 </Button>
               ) : (
                 <Box mb={2}>
-                  <Text
-                    textAlign={'center'}
-                    fontSize={30}
-                    color="#5DADE2"
-                    italic
-                    Bold>
-                    Contador de tiempo
-                  </Text>
-                  {estadoService ? (
-                    <HStack justifyContent="space-evenly">
-                      <Button
-                        bg="#2874A6"
-                        width="45%"
-                        borderRadius={10}
-                        mb={2}
-                        isDisabled={habilitarIniciarService}
-                        onPress={() => {
-                          let fechaHora = new Date();
-                          let iniciaService = convertirFecha(fechaHora, true);
-
-                          fetch(`${RUTA_API}/insertarNuevaAtencion`, {
-                            method: 'POST',
-                            headers: {
-                              Accept: 'application/json',
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              id_caso_call_center: test.data.caso.ec_id,
-                              fecha_inicio_service: iniciaService,
-                              totalHoras: '0',
-                              profesional_id: test.data.caso.ec_profesional_id,
-                              finalizado: '0',
-                            }),
-                          })
-                            .then(res => res.json())
-                            .then(
-                              fetch(
-                                `${RUTA_API}/cambiarEstadoContadorIniciado`,
-                                {
-                                  method: 'POST',
-                                  headers: {
-                                    Accept: 'application/json',
-                                    'Content-Type': 'application/json',
-                                  },
-                                  body: JSON.stringify({
-                                    caso_call_center_id: test.data.caso.ec_id,
-                                  }),
-                                },
-                              )
-                                .then(res => res.json())
-                                .then(result => {
-                                  console.log('contador iniciado');
-                                })
-                                .catch(resp => {
-                                  Alert.alert(
-                                    'No se pudo cambiar el estado del contador - Intente nuevamente',
-                                  );
-                                }),
-                            )
-                            .then(result => {
-                              //console.log(test.data.caso.ec_id)
-                              Alert.alert('CONTADOR INICIADO');
-                              navigation.navigate({name: 'Casos'});
-                            })
-                            .catch(resp => {
-                              Alert.alert(
-                                'Contador no iniciado - Intente nuevamente',
-                              );
-                            });
-                        }}>
-                        Iniciar contador
-                      </Button>
-                      <Button
-                        bg="#2874A6"
-                        width="45%"
-                        borderRadius={10}
-                        mb={2}
-                        isDisabled={!habilitarIniciarService}
-                        onPress={() => {
-                          let fechaHora = new Date();
-                          let terminaService = convertirFecha(fechaHora, true);
-                          fetch(`${RUTA_API}/actualizarFinAtencion`, {
-                            method: 'POST',
-                            headers: {
-                              Accept: 'application/json',
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              id: estadoService[0].id,
-                              fecha_fin_service: terminaService,
-                            }),
-                          })
-                            .then(res => res.json())
-                            .then(result => {
-                              fetch(
-                                `${RUTA_API}/cambiarEstadoContadorDetenido`,
-                                {
-                                  method: 'POST',
-                                  headers: {
-                                    Accept: 'application/json',
-                                    'Content-Type': 'application/json',
-                                  },
-                                  body: JSON.stringify({
-                                    caso_call_center_id: test.data.caso.ec_id,
-                                  }),
-                                },
-                              )
-                                .then(res => res.json())
-                                .then(result => {
-                                  console.log('contador detenido');
-                                })
-                                .catch(resp => {
-                                  Alert.alert(
-                                    'No se pudo cambiar el estado del contador - Intente nuevamente',
-                                  );
-                                }),
-                                navigation.navigate({name: 'DetalleService'});
-                            })
-                            .catch(resp => {
-                              Alert.alert(
-                                'Contador no detenido - Intente nuevamente',
-                              );
-                            });
-                        }}>
-                        Detener contador
-                      </Button>
-                    </HStack>
-                  ) : (
-                    <Box>
-                      <ActivityIndicator size={50} color="#00ff00" />
+                  {tiempoTrabajado && tiempoTrabajado > 0 && (
+                    <Box
+                      border={1}
+                      borderColor="#0076D1"
+                      bg="#0076D1"
+                      alignItems={'center'}
+                      mt={2}
+                      mb={2}>
+                      <Text
+                        marginTop={1}
+                        textAlign={'left'}
+                        fontSize={20}
+                        color="#fff"
+                        italic
+                        Bold>
+                        Usted ya ha trabajado, {minutosATiempo(tiempoTrabajado)}{' '}
+                        en este caso
+                      </Text>
                     </Box>
+                  )}
+                  {contadorIniciado ? (
+                    <Box>
+                    <Center>
+                      <Text mb={1} color="#B2BABB" fontSize={25} bold italic>
+                        Atención actual:
+                      </Text>
+                      <Text mb={5} color="#B2BABB" fontSize={40} bold italic>
+                        {`${tiempo.horas
+                          .toString()
+                          .padStart(2, '0')}:${tiempo.minutos
+                          .toString()
+                          .padStart(2, '0')}:${tiempo.segundos
+                          .toString()
+                          .padStart(2, '0')}`}
+                      </Text>
+                      </Center>
+                      <Center>
+                      <Button
+                        bg={finalizarDeshabilitado ? '#121212' : '#239B56'}
+                        _pressed={{bg: '#121212'}}
+                        borderRadius={250}
+                        size={250}
+                        disabled={finalizarDeshabilitado}
+                        onPress={() => {
+                          setFinalizarDeshabilitado(true);
+                          setCargando(true);
+                          actualizarFinAtencion();
+                        }}>
+                        {cargando ? (
+                          <ActivityIndicator size="large" color="#FFF" />
+                        ) : (
+                          <Text color="#FFF" fontSize="5xl" fontWeight="bold">
+                            Finalizar
+                          </Text>
+                        )}
+                      </Button>
+
+                      </Center>
+
+        
+                    </Box>
+                  ) : (
+                    <Center>
+                      {iniciarActivado ? (
+                        <Button
+                          mt={'25%'}
+                          bg="#239B56"
+                          _text={{
+                            color: '#FFF',
+                            fontSize: '5xl',
+                            fontWeight: 'bold',
+                          }}
+                          disabled={!iniciarActivado}
+                          onPress={() => {
+                            iniciarContador();
+                            setContadorIniciado(true);
+                            setIniciarActivado(false);
+                            insertarNuevaAtencion();
+                            let FechaActual = new Date();
+                            let actual = convertirFecha(FechaActual, true);
+                            traerHora(actual);
+                          }}
+                          borderRadius={250}
+                          size={250}>
+                          Iniciar
+                        </Button>
+                      ) : (
+                        <Box>
+                          <ActivityIndicator size={100} color="#00ff00" />
+                        </Box>
+                      )}
+                    </Center>
                   )}
                 </Box>
               )}
             </HStack>
 
-            {tiempoTrabajado && (
-              <Box
-                border={1}
-                borderColor="#0076D1"
-                bg="#0076D1"
-                alignItems={'center'}
-                mb={20}>
-                <Text
-                  marginTop={1}
-                  textAlign={'left'}
-                  fontSize={20}
-                  color="#fff"
-                  italic
-                  Bold>
-                  Tiempo trabajado {convertirTiempo(tiempoTrabajado[0].total)}{' '}
-                </Text>
-              </Box>
-            )}
             <HStack style={styles.iconContainer} justifyContent="space-evenly">
               <Icon.Button
                 name="phone"
@@ -538,121 +810,6 @@ const TomarCaso = ({navigation, route}) => {
                 WhatsApp
               </Icon.Button>
             </HStack>
-            {/*  <VStack justifyContent="center">
-              <Text
-                marginTop={1}
-                textAlign={'center'}
-                fontSize={30}
-                color="#5DADE2"
-                italic
-                Bold>
-                Solución del caso:
-              </Text>
-              <TextArea
-                bg="#FFF"
-                containerStyle={styles.textareaContainer}
-                borderRadius={10}
-                ml="6%"
-                h="200px"
-                w="90%"
-                style={styles.textarea}
-                // textAlign={"center"}
-                placeholder="Describa solución del caso"
-                placeholderTextColor={'#CACFD2'}
-                borderColor={'#B2BABB'}
-                maxLength={5000}
-                value={Cerrar}
-                onChangeText={element => {
-                  setCerrarCaso(element);
-                }}
-              />
-              <Text
-                marginTop={1}
-                textAlign={'center'}
-                fontSize={22}
-                color="#5DADE2"
-                italic
-                Bold>
-                Comunicación Interna:
-              </Text>
-              <TextArea
-                bg="#FFF"
-                containerStyle={styles.textareaContainer}
-                style={styles.textarea}
-                ml="6%"
-                h="200px"
-                w="90%"
-                //  Text = {test.data.caso.ec_informe_trabajo}
-                // textAlign={"center"}
-                placeholder="Si es necesario inserte un comentario de uso interno"
-                placeholderTextColor={'#CACFD2'}
-                borderColor={'#B2BABB'}
-                maxLength={5000}
-                value={Interna}
-                onChangeText={element => {
-                  setInterna(element);
-                }}
-              />
-
-              <Button
-                isDisabled={!Cerrar}
-                _text={{
-                  color: '#FFF',
-                  fontSize: 'xl',
-                  fontWeight: 'bold',
-                }}
-                marginLeft={3}
-                width="55%"
-                bg="#0098da"
-                bold
-                mt={5}
-                onPress={() => {
-                  console.log(
-                    'clic uno!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',
-                  );
-                  setCerrarCaso(true);
-                  let fechaHora = new Date();
-                  // console.log(convertirFecha(fechaHora,true))
-                  let fechaHoraCierra = convertirFecha(fechaHora, true);
-
-                  fetch(`${RUTA_API}/cerrarCasoAtiende`, {
-                    method: 'POST',
-                    headers: {
-                      Accept: 'application/json',
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      caso_call_center_id: test.data.caso.ec_id,
-                      ec_caso_solucion: Cerrar,
-                      ec_informe_trabajo: Interna,
-                      ec_fecha_hora_cerrado: fechaHoraCierra,
-                    }),
-                  })
-                    .then(res => res.json())
-                    .then(result => {
-                      //navigation.navigate({ name: 'Casos' })
-                    })
-                    .catch(resp => {});
-
-                  fetch(`${RUTA_API}/CrearOST`, {
-                    method: 'POST',
-                    headers: {
-                      Accept: 'application/json',
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      caso_call_center_id: test.data.caso.ec_id,
-                    }),
-                  })
-                    .then(res => res.json())
-                    .then(result => {
-                      navigation.navigate({name: 'Casos'});
-                    })
-                    .catch(resp => {});
-                }}>
-                Finalizar caso telefónico
-              </Button>
-            </VStack> */}
           </Box>
         </ScrollView>
       </ImageBackground>

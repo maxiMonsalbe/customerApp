@@ -43,7 +43,10 @@ import {
   StyleSheet,
   View,
   ActivityIndicator,
+  PermissionsAndroid,
 } from 'react-native';
+import Geolocation from 'react-native-geolocation-service';
+import {ContinousBaseGesture} from 'react-native-gesture-handler/lib/typescript/handlers/gestures/gesture';
 //import { TouchableOpacity } from 'react-native-gesture-handler';
 
 //const Stack = createNativeStackNavigator();
@@ -52,10 +55,50 @@ const Casos = ({navigation}) => {
   const {isOpen, onOpen, onClose} = useDisclose();
 
   const [casos, setCasos] = React.useState('');
-  const [actualizar , setActualizar] = React.useState(false)
+  const [actualizar, setActualizar] = React.useState(false);
+  const [casoHace, setCasoHace] = React.useState();
   const [estadoService, setestadoService] = React.useState('');
+  
+  const solicitarPermisosUbicacion = async () => {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: 'Permiso de ubicación',
+          message:
+            'Se requiere permiso de ubicación para acceder a la ubicación del dispositivo',
+          buttonNeutral: 'Preguntar más tarde',
+          buttonNegative: 'Cancelar',
+          buttonPositive: 'OK',
+        },
+      );
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        //obtenerUbicacion();
+        console.log("permiso otorgado")
+      } else {
+        console.log('Permiso de ubicación denegado');
+      }
+    } catch (err) {
+      console.warn(err);
+    }
+  };
+  
+
+
+  const convertirFechaSINHORA = (fecha, Año) => {
+    const fechaCaso = new Date(fecha);
+
+    var dd = String(fechaCaso.getDate()).padStart(2, '0');
+
+    var mm = String(fechaCaso.getMonth() + 1).padStart(2, '0');
+
+    var yyyy = fechaCaso.getFullYear();
+
+    return Año ? yyyy + '-' + mm + '-' + dd : dd + '-' + mm;
+  };
 
   React.useEffect(() => {
+   
     const unsubscribe = navigation.addListener('focus', () => {
       fetch(`${RUTA_API}/casosusuario`, {
         method: 'POST',
@@ -75,23 +118,19 @@ const Casos = ({navigation}) => {
         });
     });
     return unsubscribe;
-}, [navigation]);
+  }, [navigation]);
 
   React.useEffect(
     () =>
-      navigation.addListener('beforeRemove', (e) => {
-      
-        
+  
+      navigation.addListener('beforeRemove', e => {
         e.preventDefault();
-
-        
       }),
-    [navigation]
+    [navigation],
   );
 
   React.useEffect(() => {
-    //console.log("Empleado id " + test.data.usuario.id_usuario)
-
+ 
     fetch(`${RUTA_API}/casosusuario`, {
       method: 'POST',
       headers: {
@@ -108,15 +147,32 @@ const Casos = ({navigation}) => {
         setCasos(result.visitas);
         // console.log(" pantalla de casos")
       });
+      solicitarPermisosUbicacion()
+  }, [actualizar]);
+  // }, [casos]);
 
-   },[actualizar] );
- // }, [casos]);
+  const calcularDias = fecha => {
+  
+    let fechaAhora = new Date();
+    let ahora = convertirFechaSINHORA(fechaAhora, true);
+
+    let fechaCreado = convertirFechaSINHORA(fecha, true);
+    ahora = new Date(ahora);
+    fechaCreado = new Date(fechaCreado);
+    // console.log(calcularDiferenciaMinutos(ahora, fechaCreado) / 1440);
+
+    let dif = (ahora.getTime() - fechaCreado.getTime()) / 1000 / 60;
+    diferenciaDias = Math.abs(Math.round(dif)) / 1440;
+    // console.log("diferencia en dias" + diferenciaDias);
+    
+    return (Math.abs(Math.round(dif)) / 1440);
+  };
 
   return (
     <NativeBaseProvider>
       <ImageBackground
         mt={'100%'}
-        source={require('./imagenes/fondoazul.jpg')}
+        source={require('./imagenes/Login2.jpg')}
         style={styles.image}>
         <HStack bg={'#FFF'}>
           <Image
@@ -160,9 +216,8 @@ const Casos = ({navigation}) => {
                   _text={{color: '#21618C'}}
                   onPress={() => {
                     //RNRestart.Restart();
-                    setActualizar(!actualizar)
-                    onClose()
-
+                    setActualizar(!actualizar);
+                    onClose();
                   }}>
                   Actualizar
                 </Actionsheet.Item>
@@ -182,11 +237,10 @@ const Casos = ({navigation}) => {
 
         <ScrollView
           _contentContainerStyle={{
-            px: '10px',
+            px: '4px',
             pb: '100px',
             mb: '2',
           }}>
-          
           <Center>
             <Text
               p={1}
@@ -200,45 +254,56 @@ const Casos = ({navigation}) => {
             </Text>
           </Center>
 
-          <VStack>
+          <VStack justifyContent="space-evenly">
             {casos ? (
               casos.map((val, key) => {
-                return (
+                return(
                   <TouchableOpacity
                     key={key}
                     onPress={() => {
-                      
                       test.data.caso = val;
+                     // console.log("tipo de caso" + test.data.caso.tipoCaso);
 
                       navigation.navigate({name: 'InformeCaso'});
                     }}>
                     <Box mb={5} borderRadius={10} bg="#fff" p={3}>
                       <VStack>
-                      <Box>
-                      <Text
+                        <Box>
+                          <Text
                             textAlign={'right'}
                             fontSize={20}
                             marginRight={1}
                             color={'#1A5276'}
                             fontWeight="bold">
-                            Tipo de atencion: {val.modo_resolucion} 
+                            Tipo de atencion: {val.modo_resolucion}
                           </Text>
-                      </Box>
-                      
+                        </Box>
+
                         <Box alignSelf={'center'}>
-                          <Text fontSize={25} color="#1A5276" fontWeight="bold">
+                          <Text fontSize={27} color="#1A5276" fontWeight="bold">
                             {' '}
                             Caso: {val.ec_id}
                           </Text>
                         </Box>
+                        <Text
+                          textAlign={'center'}
+                          fontSize={20}
+                          marginRight={1}
+                          color={'#ED0A0A'}
+                          fontWeight="bold">
+                          {val.ct_nombre}
+                        </Text>
                         <Box alignSelf={'center'}>
-                          <Text fontSize={20}>
+                          <Text fontSize={20} color={'#0B14D6'}>
                             Cliente: {val.ec_cliente_razon_social}
                           </Text>
                         </Box>
 
                         <Box>
-                          <Text alignSelf={'center'} fontSize={18}>
+                          <Text
+                            alignSelf={'center'}
+                            fontSize={18}
+                            color={'#0B14D6'}>
                             {' '}
                             Equipo: {val.ec_equipo_nombre}
                           </Text>
@@ -248,34 +313,51 @@ const Casos = ({navigation}) => {
                           <Text
                             textAlign={'right'}
                             marginTop={'5'}
-                          
                             marginRight={1}
                             color={'#1A5276'}
                             fontWeight="bold">
-                            Estado: {val.ce_nombre} 
+                            Estado: {val.ce_nombre}
                           </Text>
-                         
-                          <Text
-                            textAlign={'right'}
-                          
-                            marginBottom={1}
-                            marginRight={1}
-                            color={'#1A5276'}
-                            fontSize={15}
-                            fontWeight="bold">
-                           Contador: {val.estado} 
-                          </Text>
-                  
+                          <HStack justifyContent="space-evenly">
+                            <Text
+                              textAlign={'left'}
+                              marginBottom={1}
+                              color={'#1A5276'}
+                              fontSize={15}
+                              fontWeight="bold">
+                              Caso abierto hace:{' '}
+                              {calcularDias(val.ec_caso_fecha_creado)} dias
+                            </Text>
+                            <Text
+                              textAlign={'right'}
+                              marginBottom={1}
+                              color={'#1A5276'}
+                              fontSize={15}
+                              fontWeight="bold">
+                              Contador: {val.estado}
+                            </Text>
+                          </HStack>
+
                           <Progress
                             colorScheme={
-                              val.ce_nombre == 'Profesional' ? 'yellow' : (val.ce_nombre == 'Profesional - Contador iniciado' ? 'green' : 'red')
+                              val.ce_nombre == 'Profesional'
+                                ? 'yellow'
+                                : val.ce_nombre ==
+                                  'Profesional - Contador iniciado'
+                                ? 'green'
+                                : 'red'
                             }
-                            value={val.ce_nombre == 'Profesional' ? '50' : (val.ce_nombre == 'Profesional - Contador iniciado' ? '80' : '5')}
+                            value={
+                              val.ce_nombre == 'Profesional'
+                                ? '50'
+                                : val.ce_nombre ==
+                                  'Profesional - Contador iniciado'
+                                ? '80'
+                                : '5'
+                            }
                             mt="1"
                             mx="2"
                           />
-
-     
                         </Box>
                       </VStack>
                     </Box>

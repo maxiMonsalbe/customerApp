@@ -24,18 +24,11 @@ import {View, useWindowDimensions, ImageBackground} from 'react-native';
 import {RUTA_API, GetFormattedDate, formatoBanco} from './utilidades/utiles';
 import {fontWeight} from 'styled-system';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
-
+import ReAbrirCaso from './ReAbrirCaso';
 const Stack = createNativeStackNavigator();
 
-
-
 const DetalleCasoCerrado = ({navigation, route}) => {
-
   const [tiempoTrabajado, setTiempoTrabajado] = React.useState('');
-
-
-  
-
 
   function secondsToString(seconds) {
     var hour = Math.floor(seconds / 3600);
@@ -46,7 +39,6 @@ const DetalleCasoCerrado = ({navigation, route}) => {
     second = second < 10 ? '0' + second : second;
     return hour + ':' + minute + ':' + second;
   }
-
 
   const convertirFecha = (fecha, Año) => {
     const fechaCaso = new Date(fecha);
@@ -93,14 +85,13 @@ const DetalleCasoCerrado = ({navigation, route}) => {
     return horas + ':' + minutos;
   }
 
-
   return (
     <NativeBaseProvider>
       <ImageBackground
-        source={require('./imagenes/fondoazul.jpg')}
+        source={require('./imagenes/Login2.jpg')}
         resizeMode="cover">
         <HStack bg={'#FFF'}>
-          <Text color={'#3498DB'} fontSize={25} p={4} pb={1} bold italic>
+          <Text color={'#070C6B'} fontSize={25} p={4} pb={1} bold italic>
             Caso: {test.data.caso.ec_id}
           </Text>
         </HStack>
@@ -125,7 +116,7 @@ const DetalleCasoCerrado = ({navigation, route}) => {
                 marginTop={1}
                 textAlign={'center'}
                 fontSize={30}
-                color="#5DADE2"
+                color="#070C6B"
                 italic
                 Bold>
                 {' '}
@@ -135,7 +126,7 @@ const DetalleCasoCerrado = ({navigation, route}) => {
                 marginBottom={5}
                 textAlign={'center'}
                 fontSize={25}
-                color="#154360"
+                color="#070C6B"
                 italic>
                 {' '}
                 Cliente #{test.data.caso.ec_cliente_codigo_lew}{' '}
@@ -145,7 +136,7 @@ const DetalleCasoCerrado = ({navigation, route}) => {
                 marginBottom={1}
                 textAlign={'left'}
                 fontSize={17}
-                color="#191919">
+                color="#070C6B">
                 {' '}
                 Se Contactó:{' '}
                 {test.data.caso.ec_contacto_inicia_nombre_y_apellido}{' '}
@@ -155,7 +146,7 @@ const DetalleCasoCerrado = ({navigation, route}) => {
                 marginBottom={1}
                 textAlign={'left'}
                 fontSize={17}
-                color="#191919">
+                color="#070C6B">
                 {' '}
                 Telefono: {test.data.caso.ec_contacto_inicia_telefono}{' '}
               </Text>
@@ -165,7 +156,7 @@ const DetalleCasoCerrado = ({navigation, route}) => {
                 marginBottom={1}
                 textAlign={'left'}
                 fontSize={17}
-                color="#191919">
+                color="#070C6B">
                 {' '}
                 Por el equipo: {test.data.caso.ec_equipo_nombre}{' '}
               </Text>
@@ -174,7 +165,7 @@ const DetalleCasoCerrado = ({navigation, route}) => {
                 marginBottom={1}
                 textAlign={'left'}
                 fontSize={17}
-                color="#191919">
+                color="#070C6B">
                 {' '}
                 Nro. Serie: {test.data.caso.ec_equipo_cliente_nro_serie}{' '}
               </Text>
@@ -184,7 +175,7 @@ const DetalleCasoCerrado = ({navigation, route}) => {
                 marginBottom={1}
                 textAlign={'left'}
                 fontSize={17}
-                color="#191919">
+                color="#070C6B">
                 {' '}
                 Nos llamo la fecha:{' '}
                 {convertirFecha(test.data.caso.ec_caso_fecha_creado, true)}{' '}
@@ -192,15 +183,15 @@ const DetalleCasoCerrado = ({navigation, route}) => {
 
               <Text
                 rounded="lg"
-                marginBottom={1}
-                color="#154360"
+                marginTop={3}
+                 color="#070C6B"
                 borderColor="coolGray.200"
                 fontSize={20}
+                bold
                 textAlign="left">
                 Nos reportó:
               </Text>
 
-              
               <Box
                 alignItems={'center'}
                 mb={5}
@@ -211,7 +202,7 @@ const DetalleCasoCerrado = ({navigation, route}) => {
                 <Text
                   rounded="lg"
                   fontSize={20}
-                  color="#000"
+                  color="#070C6B"
                   textAlign="center">
                   {test.data.caso.ec_objeto_de_llamado}
                 </Text>
@@ -220,9 +211,10 @@ const DetalleCasoCerrado = ({navigation, route}) => {
               <Text
                 rounded="lg"
                 marginBottom={1}
-                color="#154360"
+                color="#070C6B"
                 borderColor="coolGray.200"
                 fontSize={20}
+                bold
                 textAlign="left">
                 Solución del caso:
               </Text>
@@ -236,54 +228,65 @@ const DetalleCasoCerrado = ({navigation, route}) => {
                 <Text
                   rounded="lg"
                   fontSize={20}
-                  color="#000"
+                  color="#070C6B"
                   textAlign="center">
                   {test.data.caso.ec_caso_solucion}
                 </Text>
               </Box>
 
-
-
               <Text
                 marginTop={2}
                 marginBottom={1}
                 textAlign={'left'}
                 fontSize={17}
-                color="#191919">
-          
+                color="#070C6B">
                 Caso cerrado el dia:{' '}
-                {convertirFecha(test.data.caso.ec_caso_fecha_creado, true)}{' '}
-             
+                {convertirFecha(test.data.caso.ec_caso_fecha_cerrado, true)}{' '}
               </Text>
-             
+
               <Text
                 marginTop={2}
                 marginBottom={1}
                 textAlign={'left'}
                 fontSize={17}
-                color="#191919">
-          
-               Tiempo trabajado:{' '}
-               {convertirTiempo(test.data.caso.Total)}
-               
-             
+                color="#070C6B">
+                Tiempo trabajado: {convertirTiempo(test.data.caso.Total)}
               </Text>
               <Button
-                  _text={{
-                    color: '#FFF',
-                    fontSize: 'xl',
-                    fontWeight: 'bold',
-                  }}
-                  width="95%"
-                  bg="#2874A6"
-                  borderRadius={10}
-                  bold
-                  mt={5}
-                  onPress={() => {navigation.navigate({name: 'Casos'});}}>
-                 Volver a pantalla principal
-                </Button>
+                _text={{
+                  color: '#FFF',
+                  fontSize: 'xl',
+                  fontWeight: 'bold',
+                }}
+                width="95%"
+                bg="#2874A6"
+                borderRadius={10}
+                bold
+                mt={5}
+                onPress={() => {
+                  navigation.navigate({name: 'Casos'});
+                }}>
+                Volver a pantalla principal
+              </Button>
+
+              <Button
+                _text={{
+                  color: '#FFF',
+                  fontSize: 'xl',
+                  fontWeight: 'bold',
+                }}
+                width="95%"
+                bg="#2874A6"
+                borderRadius={10}
+                bold
+                mt={5}
+                onPress={() => {
+                  navigation.navigate({name: 'ReAbrirCaso'})
+                  
+                }}>
+                Reabrir caso
+              </Button>
             </Box>
-            
           </ScrollView>
         </VStack>
       </ImageBackground>

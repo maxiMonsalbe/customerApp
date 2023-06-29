@@ -2,10 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 
 //Constantes utiles
 // IP en Casa
-//const RUTA_API = 'http://192.168.0.4:3033'
+//const RUTA_API = 'http://192.168.190.56:3033'
 
 // IP en Oficina
-//const RUTA_API = 'http://192.168.190.149:3033'
+//const RUTA_API = 'http://192.168.0.6:3033'
 //const RUTA_API = 'http://127.0.0.1:3306'
 
 //IP Ruta mi WIFI
@@ -14,8 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 // IP de produccion
 const RUTA_API = 'http://190.246.216.236:3033'
 
-//IP cable de Red
-//const RUTA_API = 'http://192.168.190.173:3033'
+
 
 // 20215.23 => 20.215,23
 const invert = (a) => {

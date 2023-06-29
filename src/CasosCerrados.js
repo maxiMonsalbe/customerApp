@@ -98,14 +98,14 @@ const CasosCerrados = ({navigation}) => {
         // console.log(" pantalla de casos cerrados")
       });
 
-      }, );
+      },[] );
  // }, [casos]);
 
   return (
     <NativeBaseProvider>
       <ImageBackground
         mt={'100%'}
-        source={require('./imagenes/fondoazul.jpg')}
+        source={require('./imagenes/Login2.jpg')}
         style={styles.image}>
         <HStack bg={'#FFF'}>
           <Image
@@ -160,17 +160,19 @@ const CasosCerrados = ({navigation}) => {
                           </Text>
                         </Box>
                         <Box alignSelf={'center'}>
-                          <Text fontSize={20}>
+                          <Text fontSize={20}
+                          color="#0B14D6">
                             Cliente: {val.ec_cliente_razon_social}
                           </Text>
                         </Box>
 
                         <Box>
-                          <Text alignSelf={'center'}  fontSize={18}>
+                          <Text alignSelf={'center'}  fontSize={18}
+                          color="#0B14D6">
                             {' '}
                             Equipo: {val.ec_equipo_nombre}
                           </Text>
-                          <Text alignSelf={'center'}  fontSize={18}>
+                          <Text alignSelf={'center'}  fontSize={18} color="#0B14D6">
                             {' '}
                             Tiempo trabajado en el caso:  {convertirTiempo(val.Total)}{' '}
                           </Text>
@@ -200,8 +202,27 @@ const CasosCerrados = ({navigation}) => {
                 <ActivityIndicator size={50} color="#00ff00" />
               </Box>
             )}
+            
 
           </VStack>
+          <Center>
+          <Button
+                _text={{
+                  color: '#FFF',
+                  fontSize: 'xl',
+                  fontWeight: 'bold',
+                }}
+                width="95%"
+                bg="#0B14D6"
+                borderRadius={10}
+                bold
+                mt={5}
+                onPress={() => {
+                  navigation.navigate({name: 'Casos'});
+                }}>
+                Volver a pantalla principal
+              </Button>
+              </Center>
         </ScrollView>
       </ImageBackground>
     </NativeBaseProvider>

@@ -69,7 +69,7 @@ const SplashScreens = ({ navigation }) => {
 
   return (
 
-    <ImageBackground source={require('./imagenes/fondoazul.jpg')} resizeMode={"cover"} p={2} style={styles.image}  >
+    <ImageBackground source={require('./imagenes/Login2.jpg')} resizeMode={"cover"} p={2} style={styles.image}  >
       <Center flex={1}>
         <Animatable.Image
           

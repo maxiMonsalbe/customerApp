@@ -35,6 +35,8 @@ import Firma from './Firma';
 import DetalleServicePresencial from './DetalleServicePresencial';
 import CasosCerrados from './CasosCerrados';
 import DetalleCasoCerrado from './DetalleCasoCerrado';
+import AtencionesDelCaso from './AtencionesDelCaso';
+import ReAbrirCaso from './ReAbrirCaso';
 
  const Stack = createNativeStackNavigator();
 
@@ -57,7 +59,9 @@ import DetalleCasoCerrado from './DetalleCasoCerrado';
           <Stack.Screen name="OST" component={OST} options={{ headerShown:false}}/> 
           <Stack.Screen name="CasosCerrados" component={CasosCerrados} options={{ headerShown:false}}/> 
           <Stack.Screen name="DetalleCasoCerrado" component={DetalleCasoCerrado} options={{ headerShown:false}}/> 
-          
+          <Stack.Screen name="AtencionesDelCaso" component={AtencionesDelCaso} options={{ headerShown:false}}/> 
+          <Stack.Screen name="ReAbrirCaso" component={ReAbrirCaso} options={{ headerShown:false}}/> 
+       
         </Stack.Navigator>
       </NativeBaseProvider>
     </NavigationContainer>
